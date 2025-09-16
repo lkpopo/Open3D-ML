@@ -241,7 +241,15 @@ class Config(object):
         return Config(cfg_dict)
 
     def __getattr__(self, name):
-        return getattr(self._cfg_dict, name)
+        # 直接从 __dict__ 或 _cfg_dict 取属性
+        cfg_dict = super().__getattribute__("_cfg_dict")  # 避免递归
+        if hasattr(cfg_dict, name):
+            return getattr(cfg_dict, name)
+        elif name in cfg_dict:
+            return cfg_dict[name]
+        else:
+            raise AttributeError(f"'Config' object has no attribute '{name}'")
+
 
     def __getitem__(self, name):
         return self._cfg_dict.__getitem__(name)
@@ -250,4 +258,7 @@ class Config(object):
         return self.cfg_dict
 
     def __setstate__(self, state):
-        self.cfg_dict = state
+        # 子进程反序列化时调用，保证 _cfg_dict 总是初始化
+        cfg_dict = state
+        super().__setattr__('cfg_dict', cfg_dict)
+        super().__setattr__('_cfg_dict', ConfigDict(cfg_dict))

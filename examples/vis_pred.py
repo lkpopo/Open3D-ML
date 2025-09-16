@@ -146,6 +146,7 @@ def main():
     pipeline_k.load_ckpt(model.cfg.ckpt_path)
 
     data_path = ensure_demo_data()
+    data_path = join(data_path, "SemanticKITTI")
     pc_names = ["000700", "000750"]
     pcs = get_custom_data(pc_names, data_path)
     pcs_with_pred = pred_custom_data(pc_names, pcs, pipeline_r, pipeline_k)

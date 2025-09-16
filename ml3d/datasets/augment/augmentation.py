@@ -18,7 +18,7 @@ class Augmentation():
 
         Typically used before rotating the pointcloud.
 
-        Args:
+        Args:s
             data: Pointcloud or features.
             cfg: config dict where
                 Key 'dim' specifies dimension to be recentered.

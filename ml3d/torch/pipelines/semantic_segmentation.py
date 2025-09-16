@@ -21,6 +21,9 @@ from ...datasets import InferenceDummySplit
 
 log = logging.getLogger(__name__)
 
+def worker_init_fn(worker_id):
+    seed = torch.utils.data.get_worker_info().seed
+    np.random.seed(worker_id + np.uint32(seed))
 
 class SemanticSegmentation(BasePipeline):
     """This class allows you to perform semantic segmentation for both training
@@ -195,6 +198,11 @@ class SemanticSegmentation(BasePipeline):
         model.device = device
         model.to(device)
         model.eval()
+        
+        for m in model.modules():
+            if isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+                m.train()
+        
         self.metric_test = SemSegMetric()
 
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -356,29 +364,8 @@ class SemanticSegmentation(BasePipeline):
             num_workers=cfg.get('num_workers', 2),
             pin_memory=cfg.get('pin_memory', True),
             collate_fn=self.batcher.collate_fn,
-            worker_init_fn=lambda x: np.random.seed(x + np.uint32(
-                torch.utils.data.get_worker_info().seed))
-        )  # numpy expects np.uint32, whereas torch returns np.uint64.
-
-        valid_dataset = dataset.get_split('validation')
-        valid_sampler = valid_dataset.sampler
-        valid_split = TorchDataloader(dataset=valid_dataset,
-                                      preprocess=model.preprocess,
-                                      transform=model.transform,
-                                      sampler=valid_sampler,
-                                      use_cache=dataset.cfg.use_cache,
-                                      steps_per_epoch=dataset.cfg.get(
-                                          'steps_per_epoch_valid', None))
-
-        valid_loader = DataLoader(
-            valid_split,
-            batch_size=cfg.val_batch_size,
-            sampler=get_sampler(valid_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
-            collate_fn=self.batcher.collate_fn,
-            worker_init_fn=lambda x: np.random.seed(x + np.uint32(
-                torch.utils.data.get_worker_info().seed)))
+            worker_init_fn=worker_init_fn)
+        # numpy expects np.uint32, whereas torch returns np.uint64.
 
         self.optimizer, self.scheduler = model.get_optimizer(cfg)
 
@@ -435,32 +422,6 @@ class SemanticSegmentation(BasePipeline):
                         results, inputs['data'], epoch)
 
             self.scheduler.step()
-
-            # --------------------- validation
-            model.eval()
-            self.valid_losses = []
-            model.trans_point_sampler = valid_sampler.get_point_sampler()
-
-            with torch.no_grad():
-                for step, inputs in enumerate(
-                        tqdm(valid_loader, desc='validation')):
-                    if hasattr(inputs['data'], 'to'):
-                        inputs['data'].to(device)
-
-                    results = model(inputs['data'])
-                    loss, gt_labels, predict_scores = model.get_loss(
-                        Loss, results, inputs, device)
-
-                    if predict_scores.size()[-1] == 0:
-                        continue
-
-                    self.metric_val.update(predict_scores, gt_labels)
-
-                    self.valid_losses.append(loss.cpu().item())
-                    # Save only for the first batch
-                    if 'valid' in record_summary and step == 0:
-                        self.summary['valid'] = self.get_3d_summary(
-                            results, inputs['data'], epoch)
 
             self.save_logs(writer, epoch)
 
@@ -619,48 +580,49 @@ class SemanticSegmentation(BasePipeline):
 
     def save_logs(self, writer, epoch):
         """Save logs from the training and send results to TensorBoard."""
-        train_accs = self.metric_train.acc()
-        val_accs = self.metric_val.acc()
 
-        train_ious = self.metric_train.iou()
-        val_ious = self.metric_val.iou()
+        # ---- loss ----
+        train_loss = np.mean(self.losses)
 
-        loss_dict = {
-            'Training loss': np.mean(self.losses),
-            'Validation loss': np.mean(self.valid_losses)
-        }
-        acc_dicts = [{
-            'Training accuracy': acc,
-            'Validation accuracy': val_acc
-        } for acc, val_acc in zip(train_accs, val_accs)]
+        # ---- acc ----
+        train_accs = self.metric_train.acc()   # list, 长度 = num_classes + 1 (最后一个是 overall)
+        num_classes = len(train_accs) - 1
 
-        iou_dicts = [{
-            'Training IoU': iou,
-            'Validation IoU': val_iou
-        } for iou, val_iou in zip(train_ious, val_ious)]
+        # ---- iou ----
+        train_ious = self.metric_train.iou()   # 同样是 list
+        assert len(train_ious) == num_classes + 1
 
-        for key, val in loss_dict.items():
-            writer.add_scalar(key, val, epoch)
-        for key, val in acc_dicts[-1].items():
-            writer.add_scalar("{}/ Overall".format(key), val, epoch)
-        for key, val in iou_dicts[-1].items():
-            writer.add_scalar("{}/ Overall".format(key), val, epoch)
+        # ---- log to TensorBoard ----
+        # loss
+        writer.add_scalar("Loss/Training", train_loss, epoch)
 
-        log.info(f"Loss train: {loss_dict['Training loss']:.3f} "
-                 f" eval: {loss_dict['Validation loss']:.3f}")
-        log.info(f"Mean acc train: {acc_dicts[-1]['Training accuracy']:.3f} "
-                 f" eval: {acc_dicts[-1]['Validation accuracy']:.3f}")
-        log.info(f"Mean IoU train: {iou_dicts[-1]['Training IoU']:.3f} "
-                 f" eval: {iou_dicts[-1]['Validation IoU']:.3f}")
+        # acc per class
+        for i in range(num_classes):
+            writer.add_scalar(f"Accuracy/Class_{i}", train_accs[i], epoch)
+        writer.add_scalar("Accuracy/Overall", train_accs[-1], epoch)
 
+        # iou per class
+        for i in range(num_classes):
+            writer.add_scalar(f"IoU/Class_{i}", train_ious[i], epoch)
+        writer.add_scalar("IoU/Overall", train_ious[-1], epoch)
+
+        # ---- print logs ----
+        log.info(f"Loss train: {train_loss:.3f}")
+        log.info(f"Acc per class: {[f'{x:.3f}' for x in train_accs[:-1]]}")
+        log.info(f"Mean acc train: {train_accs[-1]:.3f}")
+        log.info(f"IoU per class: {[f'{x:.3f}' for x in train_ious[:-1]]}")
+        log.info(f"Mean IoU train: {train_ious[-1]:.3f}")
+
+        # ---- optional 3d summary ----
         for stage in self.summary:
             for key, summary_dict in self.summary[stage].items():
                 label_to_names = summary_dict.pop('label_to_names', None)
                 writer.add_3d('/'.join((stage, key)),
-                              summary_dict,
-                              epoch,
-                              max_outputs=0,
-                              label_to_names=label_to_names)
+                            summary_dict,
+                            epoch,
+                            max_outputs=0,
+                            label_to_names=label_to_names)
+
 
     def load_ckpt(self, ckpt_path=None, is_resume=True):
         """Load a checkpoint. You must pass the checkpoint and indicate if you

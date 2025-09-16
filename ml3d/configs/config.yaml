@@ -1,0 +1,60 @@
+dataset:
+  name: Custom3D
+  dataset_path: /home/zxhc/Workspace/Open3D-ML/data/Custom3D
+  cache_dir: /home/zxhc/Workspace/Open3D-ML/scripts/logs/Custom3D
+  class_weights: [85780300, 7447738, 3510954, 1867647, 427521]
+  # class_weights: [3320647, 433108, 271586, 33257, 12564]
+  test_result_folder: /home/zxhc/Workspace/Open3D-ML/res/labels
+  use_cache: true
+  train_dir: train
+  val_dir: val
+  test_dir: test
+  steps_per_epoch_train: 1500
+
+model:
+  name: RandLANet
+  batcher: DefaultBatcher
+  ckpt_path: /home/zxhc/Workspace/Open3D-ML/scripts/logs/RandLANet_Custom3D_torch/checkpoint/ckpt_00330.pth
+  num_neighbors: 16
+  num_layers: 5
+  num_points: 65536
+  num_classes: 5
+  ignored_label_inds: []
+  sub_sampling_ratio: [4, 4, 4, 4, 2]
+  in_channels: 6
+  dim_features: 3
+  dim_output: [16, 64, 128, 256, 512]
+  grid_size: 0.06
+  augment:
+    recenter:
+      dim: [0, 1]
+    normalize:
+      feat:
+        method: linear
+        bias: 0
+        scale: 255
+      points:
+        method: linear
+    noise:
+      noise_std: 0.001
+    rotate:
+      method: vertical
+
+pipeline:
+  name: SemanticSegmentation
+  optimizer:
+    lr: 0.001
+  batch_size: 1
+  main_log_dir: /home/zxhc/Workspace/Open3D-ML/scripts/logs
+  max_epoch: 350
+  save_ckpt_freq: 10
+  scheduler_gamma: 0.965
+  test_batch_size: 1
+  val_batch_size: 2
+  num_workers: 4
+  pin_memory: false
+  summary:
+    record_for: []
+    max_pts:
+    use_reference: false
+    max_outputs: 1

@@ -3,6 +3,28 @@ import random
 
 from ...utils import SAMPLER
 
+def random_centered_gen(**kwargs):
+    
+    pc = kwargs.get('pc', None)
+    num_points = kwargs.get('num_points', None)
+    search_tree = kwargs.get('search_tree', None)
+    if pc is None or num_points is None or search_tree is None:
+        raise KeyError("Please provide pc, num_points, and search_tree \
+            for point_sampler in SemSegRandomSampler")
+
+    center_idx = np.random.choice(len(pc), 1)
+    center_point = pc[center_idx, :].reshape(1, -1)
+
+    if (pc.shape[0] < num_points):
+        diff = num_points - pc.shape[0]
+        idxs = np.array(range(pc.shape[0]))
+        idxs = list(idxs) + list(random.choices(idxs, k=diff))
+        idxs = np.asarray(idxs)
+    else:
+        idxs = search_tree.query(center_point, k=num_points)[1][0]
+    random.shuffle(idxs)
+    pc = pc[idxs]
+    return pc, idxs, center_point
 
 class SemSegRandomSampler(object):
     """Random sampler for semantic segmentation datasets."""
@@ -30,29 +52,7 @@ class SemSegRandomSampler(object):
     @staticmethod
     def get_point_sampler():
 
-        def _random_centered_gen(**kwargs):
-            pc = kwargs.get('pc', None)
-            num_points = kwargs.get('num_points', None)
-            search_tree = kwargs.get('search_tree', None)
-            if pc is None or num_points is None or search_tree is None:
-                raise KeyError("Please provide pc, num_points, and search_tree \
-                    for point_sampler in SemSegRandomSampler")
-
-            center_idx = np.random.choice(len(pc), 1)
-            center_point = pc[center_idx, :].reshape(1, -1)
-
-            if (pc.shape[0] < num_points):
-                diff = num_points - pc.shape[0]
-                idxs = np.array(range(pc.shape[0]))
-                idxs = list(idxs) + list(random.choices(idxs, k=diff))
-                idxs = np.asarray(idxs)
-            else:
-                idxs = search_tree.query(center_point, k=num_points)[1][0]
-            random.shuffle(idxs)
-            pc = pc[idxs]
-            return pc, idxs, center_point
-
-        return _random_centered_gen
+        return random_centered_gen
 
 
 SAMPLER._register_module(SemSegRandomSampler)

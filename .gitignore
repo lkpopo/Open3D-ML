@@ -26,3 +26,8 @@ test_kpconv/
 kernels/
 **/.fuse*
 train_log/
+
+*.npy
+*.las
+*.png
+.gitignore

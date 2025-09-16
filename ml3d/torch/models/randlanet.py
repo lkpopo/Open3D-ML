@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 import numpy as np
 
 from tqdm import tqdm
@@ -74,7 +75,7 @@ class RandLANet(BaseModel):
         self.augmenter = SemsegAugmentation(cfg.augment, seed=self.rng)
 
         self.fc0 = nn.Linear(cfg.in_channels, cfg.dim_features)
-        self.bn0 = nn.BatchNorm2d(cfg.dim_features, eps=1e-6, momentum=0.01)
+        self.bn0 = nn.BatchNorm2d(cfg.dim_features, eps=1e-6, momentum=0.1)
 
         # Encoder
         self.encoder = []
@@ -109,7 +110,7 @@ class RandLANet(BaseModel):
 
         self.fc1 = nn.Sequential(
             SharedMLP(dim_feature, 64, activation_fn=nn.LeakyReLU(0.2)),
-            SharedMLP(64, 32, activation_fn=nn.LeakyReLU(0.2)), nn.Dropout(0.5),
+            SharedMLP(64, 32, activation_fn=nn.LeakyReLU(0.2)), nn.Dropout(0.2),
             SharedMLP(32, cfg.num_classes, bn=False))
 
     def preprocess(self, data, attr):
@@ -355,6 +356,20 @@ class RandLANet(BaseModel):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer, cfg_pipeline.scheduler_gamma)
         return optimizer, scheduler
+    
+    def dice_loss(self, scores, labels, eps=1e-6):
+        # scores: [B, N, C] 或 [B, C, N]
+        if scores.shape[1] != self.cfg.num_classes:
+            scores = scores.permute(0, 2, 1)  # [B, C, N]
+
+        probs = F.softmax(scores, dim=1)
+        labels_one_hot = F.one_hot(labels, num_classes=self.cfg.num_classes).float()
+
+        intersection = (probs * labels_one_hot).sum(dim=1)
+        union = probs.sum(dim=1) + labels_one_hot.sum(dim=1)
+        loss = 1 - (2 * intersection + eps) / (union + eps)
+        
+        return loss.mean()
 
     def get_loss(self, Loss, results, inputs, device):
         """Calculate the loss on output of the model.
@@ -375,7 +390,9 @@ class RandLANet(BaseModel):
         scores, labels = filter_valid_label(results, labels, cfg.num_classes,
                                             cfg.ignored_label_inds, device)
 
-        loss = Loss.weighted_CrossEntropyLoss(scores, labels)
+        ce_loss = Loss.weighted_CrossEntropyLoss(scores, labels)
+        dice_loss = self.dice_loss(scores, labels)
+        loss = ce_loss*0.8 + dice_loss*1.2
 
         return loss, labels, scores
 
@@ -497,7 +514,7 @@ class SharedMLP(nn.Module):
                                   padding=(kernel_size - 1) // 2)
 
         self.batch_norm = nn.BatchNorm2d(out_channels, eps=1e-6,
-                                         momentum=0.01) if bn else None
+                                         momentum=0.1) if bn else None
         self.activation_fn = activation_fn
 
     def forward(self, input):

@@ -47,7 +47,7 @@ class TorchDataloader(Dataset):
 
             self.cache_convert = Cache(preprocess,
                                        cache_dir=cache_dir,
-                                       cache_key=get_hash(repr(preprocess)))
+                                       cache_key="9264e074b6d7fca4a357120af90688fc")
 
             uncached = [
                 idx for idx in range(len(dataset)) if dataset.get_attr(idx)
