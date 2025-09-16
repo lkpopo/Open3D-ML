@@ -74,18 +74,6 @@ class BasePipeline(ABC):
         self.cfg.setdefault('summary', {})
 
     @abstractmethod
-    def run_inference(self, data):
-        """Run inference on a given data.
-
-        Args:
-            data: A raw data.
-
-        Returns:
-            Returns the inference results.
-        """
-        return
-
-    @abstractmethod
     def run_test(self):
         """Run testing on test sets."""
         return

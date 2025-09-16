@@ -17,7 +17,6 @@ from ..utils import latest_torch_ckpt
 from ..modules.losses import SemSegLoss, filter_valid_label
 from ..modules.metrics import SemSegMetric
 from ...utils import make_dir, PIPELINE, get_runid, code2md
-from ...datasets import InferenceDummySplit
 
 log = logging.getLogger(__name__)
 
@@ -122,73 +121,6 @@ class SemanticSegmentation(BasePipeline):
                          train_sum_dir=train_sum_dir,
                          **kwargs)
 
-    def run_inference(self, data):
-        """Run inference on given data.
-
-        Args:
-            data: A raw data.
-
-        Returns:
-            Returns the inference results.
-        """
-        cfg = self.cfg
-        model = self.model
-        device = self.device
-
-        model.to(device)
-        model.device = device
-        model.eval()
-
-        preprocess_func = model.preprocess
-        processed_data = preprocess_func(data, {'split': 'test'})
-
-        def get_cache(attr):
-            return processed_data
-
-        batcher = self.get_batcher(device)
-        infer_dataset = InferenceDummySplit(data)
-        self.dataset_split = infer_dataset
-        infer_sampler = infer_dataset.sampler
-        infer_split = TorchDataloader(dataset=infer_dataset,
-                                      preprocess=model.preprocess,
-                                      transform=model.transform,
-                                      sampler=infer_sampler,
-                                      use_cache=False,
-                                      cache_convert=get_cache)
-        infer_loader = DataLoader(infer_split,
-                                  batch_size=cfg.batch_size,
-                                  sampler=get_sampler(infer_sampler),
-                                  collate_fn=batcher.collate_fn)
-
-        model.trans_point_sampler = infer_sampler.get_point_sampler()
-        self.curr_cloud_id = -1
-        self.test_probs = []
-        self.ori_test_probs = []
-        self.ori_test_labels = []
-
-        with torch.no_grad():
-            for unused_step, inputs in enumerate(infer_loader):
-                results = model(inputs['data'])
-                self.update_tests(infer_sampler, inputs, results)
-
-        inference_result = {
-            'predict_labels': self.ori_test_labels.pop(),
-            'predict_scores': self.ori_test_probs.pop()
-        }
-
-        metric = SemSegMetric()
-
-        valid_scores, valid_labels = filter_valid_label(
-            torch.tensor(inference_result['predict_scores']),
-            torch.tensor(data['label']), model.cfg.num_classes,
-            model.cfg.ignored_label_inds, device)
-
-        metric.update(valid_scores, valid_labels)
-        log.info(f"Accuracy : {metric.acc()}")
-        log.info(f"IoU : {metric.iou()}")
-
-        return inference_result
-
     def run_test(self):
         """Run the test using the data passed."""
         model = self.model
@@ -198,11 +130,11 @@ class SemanticSegmentation(BasePipeline):
         model.device = device
         model.to(device)
         model.eval()
-        
+
         for m in model.modules():
             if isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
                 m.train()
-        
+
         self.metric_test = SemSegMetric()
 
         timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -265,14 +197,14 @@ class SemanticSegmentation(BasePipeline):
                         self.metric_test.update(valid_scores, valid_labels)
                         log.info(f"Accuracy : {self.metric_test.acc()}")
                         log.info(f"IoU : {self.metric_test.iou()}")
+                        log.info(
+                            f"Overall Testing Accuracy : {self.metric_test.acc()[-1]}, mIoU : {self.metric_test.iou()[-1]}"
+                        )
                     dataset.save_test_result(inference_result, attr)
                     # Save only for the first batch
                     if 'test' in record_summary and 'test' not in self.summary:
                         self.summary['test'] = self.get_3d_summary(
                             results, inputs['data'], 0, save_gt=False)
-        log.info(
-            f"Overall Testing Accuracy : {self.metric_test.acc()[-1]}, mIoU : {self.metric_test.iou()[-1]}"
-        )
 
         log.info("Finished testing")
 
@@ -623,7 +555,6 @@ class SemanticSegmentation(BasePipeline):
                             max_outputs=0,
                             label_to_names=label_to_names)
 
-
     def load_ckpt(self, ckpt_path=None, is_resume=True):
         """Load a checkpoint. You must pass the checkpoint and indicate if you
         want to resume.
@@ -667,7 +598,6 @@ class SemanticSegmentation(BasePipeline):
     def save_config(self, writer):
         """Save experiment configuration with tensorboard summary."""
         if hasattr(self, 'cfg_tb'):
-            writer.add_text("Description/Open3D-ML", self.cfg_tb['readme'], 0)
             writer.add_text("Description/Command line", self.cfg_tb['cmd_line'],
                             0)
             writer.add_text('Configuration/Dataset',

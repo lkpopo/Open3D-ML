@@ -165,11 +165,7 @@ def main():
         cfg_dict_model['seed'] = rng
         cfg_dict_pipeline['seed'] = rng
 
-    with open(Path(__file__).parent / 'README.md', 'r') as freadme:
-        readme = freadme.read()
-
     cfg_tb = {
-        'readme': readme,
         'cmd_line': cmd_line,
         'dataset': pprint.pformat(cfg_dict_dataset, indent=2),
         'model': pprint.pformat(cfg_dict_model, indent=2),

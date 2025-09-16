@@ -223,7 +223,7 @@ class Custom3D(BaseDataset):
             pred_names = self.label_to_names[int(pred)]
         
         store_path = join(path, name + '.npy')
-        np.save(store_path, pred)
+        np.save(store_path, pred_names)
 
 
 DATASET._register_module(Custom3D)
