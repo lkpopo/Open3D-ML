@@ -3,8 +3,9 @@ import random
 
 from ...utils import SAMPLER
 
+
 def random_centered_gen(**kwargs):
-    
+
     pc = kwargs.get('pc', None)
     num_points = kwargs.get('num_points', None)
     search_tree = kwargs.get('search_tree', None)
@@ -25,6 +26,7 @@ def random_centered_gen(**kwargs):
     random.shuffle(idxs)
     pc = pc[idxs]
     return pc, idxs, center_point
+
 
 class SemSegRandomSampler(object):
     """Random sampler for semantic segmentation datasets."""

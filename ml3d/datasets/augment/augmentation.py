@@ -30,7 +30,7 @@ class Augmentation():
         data_float64 = data.astype(np.float64)
         mean_vals = data_float64[:, dim].mean(0)
         data_float64[:, dim] -= mean_vals
-        
+
         return data_float64.astype(np.float32)
 
     def normalize(self, pc, feat, cfg):

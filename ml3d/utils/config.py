@@ -250,7 +250,6 @@ class Config(object):
         else:
             raise AttributeError(f"'Config' object has no attribute '{name}'")
 
-
     def __getitem__(self, name):
         return self._cfg_dict.__getitem__(name)
 

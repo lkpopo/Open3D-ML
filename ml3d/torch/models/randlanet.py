@@ -192,7 +192,11 @@ class RandLANet(BaseModel):
         if 'normalize' in augment_cfg:
             val_augment_cfg['normalize'] = augment_cfg.pop('normalize')
 
-        pc, feat, label = self.augmenter.augment(pc, feat, label, val_augment_cfg, seed=rng)
+        pc, feat, label = self.augmenter.augment(pc,
+                                                 feat,
+                                                 label,
+                                                 val_augment_cfg,
+                                                 seed=rng)
 
         if attr['split'] in ['training', 'train']:
             pc, feat, label = self.augmenter.augment(pc,
@@ -356,19 +360,20 @@ class RandLANet(BaseModel):
         scheduler = torch.optim.lr_scheduler.ExponentialLR(
             optimizer, cfg_pipeline.scheduler_gamma)
         return optimizer, scheduler
-    
+
     def dice_loss(self, scores, labels, eps=1e-6):
         # scores: [B, N, C] 或 [B, C, N]
         if scores.shape[1] != self.cfg.num_classes:
             scores = scores.permute(0, 2, 1)  # [B, C, N]
 
         probs = F.softmax(scores, dim=1)
-        labels_one_hot = F.one_hot(labels, num_classes=self.cfg.num_classes).float()
+        labels_one_hot = F.one_hot(labels,
+                                   num_classes=self.cfg.num_classes).float()
 
         intersection = (probs * labels_one_hot).sum(dim=1)
         union = probs.sum(dim=1) + labels_one_hot.sum(dim=1)
         loss = 1 - (2 * intersection + eps) / (union + eps)
-        
+
         return loss.mean()
 
     def get_loss(self, Loss, results, inputs, device):
@@ -392,7 +397,7 @@ class RandLANet(BaseModel):
 
         ce_loss = Loss.weighted_CrossEntropyLoss(scores, labels)
         dice_loss = self.dice_loss(scores, labels)
-        loss = ce_loss*0.8 + dice_loss*1.2
+        loss = ce_loss * 0.8 + dice_loss * 1.2
 
         return loss, labels, scores
 

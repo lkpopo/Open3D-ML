@@ -97,31 +97,6 @@ def main():
         import open3d.ml.torch as ml3d
         import torch.multiprocessing as mp
         import torch.distributed as dist
-    else:
-        os.environ[
-            'TF_CPP_MIN_LOG_LEVEL'] = '1'  # Disable INFO messages from tf
-        import tensorflow as tf
-        import open3d.ml.tf as ml3d
-
-        device = args.device
-        gpus = tf.config.experimental.list_physical_devices('GPU')
-        if gpus:
-            try:
-                for gpu in gpus:
-                    tf.config.experimental.set_memory_growth(gpu, True)
-                if device == 'cpu':
-                    tf.config.set_visible_devices([], 'GPU')
-                elif device == 'cuda':
-                    if len(args.device_ids) > 1:
-                        raise NotImplementedError(
-                            "Multi-GPU training with TensorFlow is not yet implemented."
-                        )
-                    tf.config.set_visible_devices(gpus[0], 'GPU')
-                else:
-                    idx = device.split(':')[1]
-                    tf.config.set_visible_devices(gpus[int(idx)], 'GPU')
-            except RuntimeError as e:
-                print(e)
 
     if args.cfg_file is not None:
         cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)

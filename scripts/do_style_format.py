@@ -215,7 +215,7 @@ if __name__ == "__main__":
 
     # Check formatting libs
     pwd = Path(os.path.dirname(os.path.abspath(__file__)))
-    python_style_config = str(pwd.parent / ".style.yapf")
+    python_style_config = str(".style.yapf")
 
     # Check or apply style
     python_formatter = PythonFormatter(_glob_files(PYTHON_FORMAT_DIRS, ["py"]),

@@ -45,9 +45,10 @@ class TorchDataloader(Dataset):
             cache_dir = getattr(dataset.cfg, 'cache_dir')
             assert cache_dir is not None, 'cache directory is not given'
 
-            self.cache_convert = Cache(preprocess,
-                                       cache_dir=cache_dir,
-                                       cache_key="9264e074b6d7fca4a357120af90688fc")
+            self.cache_convert = Cache(
+                preprocess,
+                cache_dir=cache_dir,
+                cache_key="9264e074b6d7fca4a357120af90688fc")
 
             uncached = [
                 idx for idx in range(len(dataset)) if dataset.get_attr(idx)

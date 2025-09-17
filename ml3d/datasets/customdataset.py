@@ -132,7 +132,7 @@ class Custom3D(BaseDataset):
             values are the corresponding names.
         """
         label_to_names = {
-            0: "Unclassified",   # 忽略，但保留定义
+            0: "Unclassified",  # 忽略，但保留定义
             1: "Building",
             2: "Road",
             3: "Wire",
@@ -218,10 +218,11 @@ class Custom3D(BaseDataset):
         pred = results['predict_labels']
 
         if isinstance(pred, np.ndarray):
-            pred_names = np.vectorize(lambda x: self.label_to_names[int(x)])(pred)
+            pred_names = np.vectorize(lambda x: self.label_to_names[int(x)])(
+                pred)
         else:
             pred_names = self.label_to_names[int(pred)]
-        
+
         store_path = join(path, name + '.npy')
         np.save(store_path, pred_names)
 

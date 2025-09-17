@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 # pylint: disable-next=unused-import
 from open3d.visualization.tensorboard_plugin import summary
 from .base_pipeline import BasePipeline
-from ..dataloaders import get_sampler, TorchDataloader, DefaultBatcher, ConcatBatcher
+from ..dataloaders import get_sampler, TorchDataloader, DefaultBatcher
 from ..utils import latest_torch_ckpt
 from ..modules.losses import SemSegLoss, filter_valid_label
 from ..modules.metrics import SemSegMetric
@@ -20,9 +20,11 @@ from ...utils import make_dir, PIPELINE, get_runid, code2md
 
 log = logging.getLogger(__name__)
 
+
 def worker_init_fn(worker_id):
     seed = torch.utils.data.get_worker_info().seed
     np.random.seed(worker_id + np.uint32(seed))
+
 
 class SemanticSegmentation(BasePipeline):
     """This class allows you to perform semantic segmentation for both training
@@ -132,7 +134,8 @@ class SemanticSegmentation(BasePipeline):
         model.eval()
 
         for m in model.modules():
-            if isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d, torch.nn.BatchNorm3d)):
+            if isinstance(m, (torch.nn.BatchNorm1d, torch.nn.BatchNorm2d,
+                              torch.nn.BatchNorm3d)):
                 m.train()
 
         self.metric_test = SemSegMetric()
@@ -289,14 +292,13 @@ class SemanticSegmentation(BasePipeline):
                                       steps_per_epoch=dataset.cfg.get(
                                           'steps_per_epoch_train', None))
 
-        train_loader = DataLoader(
-            train_split,
-            batch_size=cfg.batch_size,
-            sampler=get_sampler(train_sampler),
-            num_workers=cfg.get('num_workers', 2),
-            pin_memory=cfg.get('pin_memory', True),
-            collate_fn=self.batcher.collate_fn,
-            worker_init_fn=worker_init_fn)
+        train_loader = DataLoader(train_split,
+                                  batch_size=cfg.batch_size,
+                                  sampler=get_sampler(train_sampler),
+                                  num_workers=cfg.get('num_workers', 2),
+                                  pin_memory=cfg.get('pin_memory', True),
+                                  collate_fn=self.batcher.collate_fn,
+                                  worker_init_fn=worker_init_fn)
         # numpy expects np.uint32, whereas torch returns np.uint64.
 
         self.optimizer, self.scheduler = model.get_optimizer(cfg)
@@ -366,8 +368,6 @@ class SemanticSegmentation(BasePipeline):
 
         if batcher_name == 'DefaultBatcher':
             batcher = DefaultBatcher()
-        elif batcher_name == 'ConcatBatcher':
-            batcher = ConcatBatcher(device, self.model.cfg.name)
         else:
             batcher = None
         return batcher
@@ -517,11 +517,12 @@ class SemanticSegmentation(BasePipeline):
         train_loss = np.mean(self.losses)
 
         # ---- acc ----
-        train_accs = self.metric_train.acc()   # list, 长度 = num_classes + 1 (最后一个是 overall)
+        train_accs = self.metric_train.acc(
+        )  # list, 长度 = num_classes + 1 (最后一个是 overall)
         num_classes = len(train_accs) - 1
 
         # ---- iou ----
-        train_ious = self.metric_train.iou()   # 同样是 list
+        train_ious = self.metric_train.iou()  # 同样是 list
         assert len(train_ious) == num_classes + 1
 
         # ---- log to TensorBoard ----
@@ -550,10 +551,10 @@ class SemanticSegmentation(BasePipeline):
             for key, summary_dict in self.summary[stage].items():
                 label_to_names = summary_dict.pop('label_to_names', None)
                 writer.add_3d('/'.join((stage, key)),
-                            summary_dict,
-                            epoch,
-                            max_outputs=0,
-                            label_to_names=label_to_names)
+                              summary_dict,
+                              epoch,
+                              max_outputs=0,
+                              label_to_names=label_to_names)
 
     def load_ckpt(self, ckpt_path=None, is_resume=True):
         """Load a checkpoint. You must pass the checkpoint and indicate if you
