@@ -10,15 +10,17 @@ import numpy as np
 import torch.distributed as dist
 from torch import multiprocessing
 
-import open3d.ml as _ml3d
-import open3d.ml.torch as ml3d #用于注册torch的module
+
+import utils,configs,datasets
+import torch_utils.pipelines,torch_utils.models
+
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a network')
     parser.add_argument('-c', '--cfg_file', help='path to the config file',
-                        default='/home/zxhc/Workspace/Open3D-ML/ml3d/configs/config.yaml')
+                        default='/home/zxhc/Workspace/Open3D-ML/configs/config.yaml')
     parser.add_argument('--device',
                         help='devices to run the pipeline, cpu or cuda',
                         default='cuda')
@@ -62,20 +64,16 @@ def parse_args():
 def main():
     cmd_line = ' '.join(sys.argv[:])
     args = parse_args()
-
-    # 遗留问题目前只能设置为torch，后续会调整
-    framework = 'torch'
     
     #获取随机数生成器
     rng = np.random.default_rng(seed=0)
         
     #加载配置文件
-    cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)
+    cfg = utils.Config.load_from_file(args.cfg_file)
 
-
-    Pipeline = ml3d.pipelines.SemanticSegmentation
-    Model = ml3d.models.RandLANet
-    Dataset = ml3d.datasets.Custom3D
+    Pipeline = torch_utils.pipelines.SemanticSegmentation
+    Model = torch_utils.models.RandLANet
+    Dataset = datasets.Custom3D
 
     #获取各个模块的配置字典
     cfg_dict_dataset, cfg_dict_pipeline, cfg_dict_model = cfg.dataset, cfg.pipeline, cfg.model
@@ -95,7 +93,7 @@ def main():
         'pipeline': pprint.pformat(cfg_dict_pipeline, indent=2)
     }
     args.cfg_tb = cfg_tb
-    args.distributed = framework == 'torch' and args.device != 'cpu' and len(
+    args.distributed = args.device != 'cpu' and len(
         args.device_ids) > 1
 
     if not args.distributed:

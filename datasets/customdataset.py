@@ -7,7 +7,7 @@ from tqdm import tqdm
 import logging
 
 from .base_dataset import BaseDataset, BaseDatasetSplit
-from ..utils import make_dir
+from utils import make_dir
 
 log = logging.getLogger(__name__)
 

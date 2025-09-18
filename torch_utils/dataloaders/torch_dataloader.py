@@ -1,7 +1,7 @@
 from tqdm import tqdm
 from torch.utils.data import Dataset
 
-from ...utils import Cache, get_hash
+from utils import Cache, get_hash
 
 
 class TorchDataloader(Dataset):

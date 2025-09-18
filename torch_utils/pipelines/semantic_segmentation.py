@@ -13,10 +13,10 @@ from torch.utils.data import DataLoader
 from open3d.visualization.tensorboard_plugin import summary
 from .base_pipeline import BasePipeline
 from ..dataloaders import get_sampler, TorchDataloader, DefaultBatcher
-from ..utils import latest_torch_ckpt
+from torch_utils.utils import latest_torch_ckpt
 from ..modules.losses import SemSegLoss, filter_valid_label
 from ..modules.metrics import SemSegMetric
-from ...utils import make_dir, get_runid, code2md
+from utils import make_dir, get_runid, code2md
 
 log = logging.getLogger(__name__)
 

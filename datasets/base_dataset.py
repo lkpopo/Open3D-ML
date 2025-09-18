@@ -4,10 +4,10 @@ from os.path import join, exists, dirname, abspath
 import logging
 import numpy as np
 
-from ml3d.datasets.samplers.semseg_random import SemSegRandomSampler
-from ml3d.datasets.samplers.semseg_spatially_regular import SemSegSpatiallyRegularSampler
+from datasets.samplers.semseg_random import SemSegRandomSampler
+from datasets.samplers.semseg_spatially_regular import SemSegSpatiallyRegularSampler
 
-from ..utils import Config
+from utils import Config
 
 log = logging.getLogger(__name__)
 

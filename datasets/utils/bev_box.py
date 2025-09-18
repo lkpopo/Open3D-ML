@@ -1,4 +1,4 @@
-from ...vis import BoundingBox3D
+from vis import BoundingBox3D
 import numpy as np
 
 

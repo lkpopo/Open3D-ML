@@ -7,11 +7,11 @@ from tqdm import tqdm
 from pathlib import Path
 from sklearn.neighbors import KDTree
 
-from .base_model import BaseModel
-from ..dataloaders import DefaultBatcher
-from ...datasets.augment import SemsegAugmentation
-from ..modules.losses import filter_valid_label
-from ...datasets.utils import DataProcessing
+from torch_utils.models.base_model import BaseModel
+from torch_utils.dataloaders import DefaultBatcher
+from datasets.augment import SemsegAugmentation
+from torch_utils.modules.losses import filter_valid_label
+from datasets.utils import DataProcessing
 
 
 class RandLANet(BaseModel):
