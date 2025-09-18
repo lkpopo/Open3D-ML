@@ -4,45 +4,28 @@ import logging
 import sys
 from pathlib import Path
 import pprint
+from sympy import Segment
 import yaml
 import numpy as np
 import torch.distributed as dist
 from torch import multiprocessing
 
 import open3d.ml as _ml3d
-
+import open3d.ml.torch as ml3d #用于注册torch的module
+import torch.multiprocessing as mp
+import torch.distributed as dist
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Train a network')
-    parser.add_argument('framework',
-                        help='deep learning framework: tf or torch')
-    parser.add_argument('-c', '--cfg_file', help='path to the config file')
-    parser.add_argument('-m', '--model', help='network model')
-    parser.add_argument('-p',
-                        '--pipeline',
-                        help='pipeline',
-                        default='SemanticSegmentation')
-    parser.add_argument('-d', '--dataset', help='dataset')
-    parser.add_argument('--cfg_model', help='path to the model\'s config file')
-    parser.add_argument('--cfg_pipeline',
-                        help='path to the pipeline\'s config file')
-    parser.add_argument('--cfg_dataset',
-                        help='path to the dataset\'s config file')
-    parser.add_argument('--dataset_path', help='path to the dataset')
-    parser.add_argument('--ckpt_path', help='path to the checkpoint')
+    parser.add_argument('-c', '--cfg_file', help='path to the config file',
+                        default='/home/zxhc/Workspace/Open3D-ML/ml3d/configs/config.yaml')
     parser.add_argument('--device',
-                        help='devices to run the pipeline',
+                        help='devices to run the pipeline, cpu or cuda',
                         default='cuda')
     parser.add_argument('--device_ids',
                         nargs='+',
                         help='cuda device list',
-                        default=['0'])
-    parser.add_argument('--split', help='train or test', default='train')
-    parser.add_argument('--mode', help='additional mode', default=None)
-    parser.add_argument('--max_epochs', help='number of epochs', default=None)
-    parser.add_argument('--batch_size', help='batch size', default=None)
-    parser.add_argument('--main_log_dir',
-                        help='the dir to save logs and models')
+                        default=[0])
     parser.add_argument('--seed', help='random seed', default=0, type=int)
     parser.add_argument('--nodes', help='number of nodes', default=1, type=int)
     parser.add_argument('--node_rank',
@@ -64,81 +47,46 @@ def parse_args():
         'backend for distributed training. One of (nccl, gloo)}, default: gloo',
         default='gloo')
 
-    args, unknown = parser.parse_known_args()
+    args = parser.parse_args()
     try:
         args.node_rank = int(args.node_rank)
     except ValueError:  # str => get from environment
         args.node_rank = int(os.environ[args.node_rank])
 
-    parser_extra = argparse.ArgumentParser(description='Extra arguments')
-    for arg in unknown:
-        if arg.startswith(("-", "--")):
-            parser_extra.add_argument(arg)
-    args_extra = parser_extra.parse_args(unknown)
-
     print("regular arguments")
     print(yaml.dump(vars(args)))
 
-    print("extra arguments")
-    print(yaml.dump(vars(args_extra)))
-
-    return args, vars(args_extra)
+    return args
 
 
 def main():
     cmd_line = ' '.join(sys.argv[:])
-    args, extra_dict = parse_args()
+    args = parse_args()
 
-    framework = _ml3d.utils.convert_framework_name(args.framework)
-    args.device, args.device_ids = _ml3d.utils.convert_device_name(
-        args.device, args.device_ids)
-    rng = np.random.default_rng(args.seed)
-    if framework == 'torch':
-        import open3d.ml.torch as ml3d
-        import torch.multiprocessing as mp
-        import torch.distributed as dist
-
-    if args.cfg_file is not None:
-        cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)
-
-        Pipeline = _ml3d.utils.get_module("pipeline", cfg.pipeline.name,
-                                          framework)
-        Model = _ml3d.utils.get_module("model", cfg.model.name, framework)
-        Dataset = _ml3d.utils.get_module("dataset", cfg.dataset.name)
-
-        cfg_dict_dataset, cfg_dict_pipeline, cfg_dict_model = \
-                        _ml3d.utils.Config.merge_cfg_file(cfg, args, extra_dict)
-
-        if args.mode is not None:
-            cfg_dict_model["mode"] = args.mode
-        if args.max_epochs is not None:
-            cfg_dict_pipeline["max_epochs"] = args.max_epochs
-        if args.batch_size is not None:
-            cfg_dict_pipeline["batch_size"] = args.batch_size
-
-        cfg_dict_dataset['seed'] = rng
-        cfg_dict_model['seed'] = rng
-        cfg_dict_pipeline['seed'] = rng
-
-        cfg_dict_pipeline["device"] = args.device
-        cfg_dict_pipeline["device_ids"] = args.device_ids
-
-    else:
-        if (args.pipeline and args.model and args.dataset) is None:
-            raise ValueError("Please specify pipeline, model, and dataset " +
-                             "if no cfg_file given")
-
-        Pipeline = _ml3d.utils.get_module("pipeline", args.pipeline, framework)
-        Model = _ml3d.utils.get_module("model", args.model, framework)
-        Dataset = _ml3d.utils.get_module("dataset", args.dataset)
+    # 遗留问题目前只能设置为torch，后续会调整
+    framework = 'torch'
+    
+    #获取随机数生成器
+    rng = np.random.default_rng(seed=0)
+        
+    #加载配置文件
+    cfg = _ml3d.utils.Config.load_from_file(args.cfg_file)
 
 
-        cfg_dict_dataset, cfg_dict_pipeline, cfg_dict_model = \
-                        _ml3d.utils.Config.merge_module_cfg_file(args, extra_dict)
+    Pipeline = ml3d.pipelines.SemanticSegmentation
+    Model = ml3d.models.RandLANet
+    Dataset = ml3d.datasets.Custom3D
 
-        cfg_dict_dataset['seed'] = rng
-        cfg_dict_model['seed'] = rng
-        cfg_dict_pipeline['seed'] = rng
+    #获取各个模块的配置字典
+    cfg_dict_dataset, cfg_dict_pipeline, cfg_dict_model = cfg.dataset, cfg.pipeline, cfg.model
+
+    cfg_dict_dataset['seed'] = rng
+    cfg_dict_model['seed'] = rng
+    cfg_dict_pipeline['seed'] = rng
+
+    cfg_dict_pipeline["device"] = args.device
+    cfg_dict_pipeline["device_ids"] = args.device_ids
+
 
     cfg_tb = {
         'cmd_line': cmd_line,
@@ -151,18 +99,20 @@ def main():
         args.device_ids) > 1
 
     if not args.distributed:
+        # 单GPU训练模式
         dataset = Dataset(**cfg_dict_dataset)
-        model = Model(**cfg_dict_model, mode=args.mode)
+        model = Model(**cfg_dict_model)
         pipeline = Pipeline(model, dataset, **cfg_dict_pipeline)
 
         pipeline.cfg_tb = cfg_tb
 
-        if args.split == 'test':
+        if cfg_dict_pipeline['split'] == 'test':
             pipeline.run_test()
         else:
             pipeline.run_train()
 
     else:
+        # 多GPU训练模式
         mp.spawn(main_worker,
                  args=(Dataset, Model, Pipeline, cfg_dict_dataset,
                        cfg_dict_model, cfg_dict_pipeline, args),
@@ -191,7 +141,7 @@ def main_worker(local_rank, Dataset, Model, Pipeline, cfg_dict_dataset,
     cfg_dict_model['rank'] = rank
     cfg_dict_pipeline['rank'] = rank
 
-    rng = np.random.default_rng(args.seed + rank)
+    rng = np.random.default_rng(rank)
     cfg_dict_dataset['seed'] = rng
     cfg_dict_model['seed'] = rng
     cfg_dict_pipeline['seed'] = rng

@@ -7,7 +7,7 @@ from tqdm import tqdm
 import logging
 
 from .base_dataset import BaseDataset, BaseDatasetSplit
-from ..utils import make_dir, DATASET
+from ..utils import make_dir
 
 log = logging.getLogger(__name__)
 
@@ -226,5 +226,3 @@ class Custom3D(BaseDataset):
         store_path = join(path, name + '.npy')
         np.save(store_path, pred_names)
 
-
-DATASET._register_module(Custom3D)

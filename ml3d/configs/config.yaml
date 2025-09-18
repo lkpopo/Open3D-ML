@@ -9,7 +9,7 @@ dataset:
   train_dir: train
   val_dir: val
   test_dir: test
-  steps_per_epoch_train: 1500
+  steps_per_epoch_train: 5
 
 model:
   name: RandLANet
@@ -50,9 +50,9 @@ pipeline:
   save_ckpt_freq: 10
   scheduler_gamma: 0.965
   test_batch_size: 1
-  val_batch_size: 2
   num_workers: 4
   pin_memory: false
+  split: train
   summary:
     record_for: []
     max_pts:

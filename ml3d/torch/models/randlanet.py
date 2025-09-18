@@ -12,7 +12,6 @@ from ..dataloaders import DefaultBatcher
 from ...datasets.augment import SemsegAugmentation
 from ..modules.losses import filter_valid_label
 from ...datasets.utils import DataProcessing
-from ...utils import MODEL
 
 
 class RandLANet(BaseModel):
@@ -485,9 +484,6 @@ class RandLANet(BaseModel):
                 1 - self.test_smooth) * probs
 
         return test_probs
-
-
-MODEL._register_module(RandLANet, 'torch')
 
 
 class SharedMLP(nn.Module):

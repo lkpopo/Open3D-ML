@@ -1,9 +1,6 @@
 import numpy as np
 import random
 
-from ...utils import SAMPLER
-
-
 def random_centered_gen(**kwargs):
 
     pc = kwargs.get('pc', None)
@@ -56,5 +53,3 @@ class SemSegRandomSampler(object):
 
         return random_centered_gen
 
-
-SAMPLER._register_module(SemSegRandomSampler)

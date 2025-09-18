@@ -16,7 +16,7 @@ from ..dataloaders import get_sampler, TorchDataloader, DefaultBatcher
 from ..utils import latest_torch_ckpt
 from ..modules.losses import SemSegLoss, filter_valid_label
 from ..modules.metrics import SemSegMetric
-from ...utils import make_dir, PIPELINE, get_runid, code2md
+from ...utils import make_dir, get_runid, code2md
 
 log = logging.getLogger(__name__)
 
@@ -609,5 +609,3 @@ class SemanticSegmentation(BasePipeline):
                             code2md(self.cfg_tb['pipeline'], language='json'),
                             0)
 
-
-PIPELINE._register_module(SemanticSegmentation, "torch")

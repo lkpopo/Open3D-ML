@@ -2,8 +2,6 @@ import numpy as np
 from tqdm import tqdm
 import random
 
-from ...utils import SAMPLER
-
 
 class SemSegSpatiallyRegularSampler(object):
     """Spatially regularSampler sampler for semantic segmentation datasets."""
@@ -110,5 +108,3 @@ class SemSegSpatiallyRegularSampler(object):
 
         return _random_centered_gen
 
-
-SAMPLER._register_module(SemSegSpatiallyRegularSampler)

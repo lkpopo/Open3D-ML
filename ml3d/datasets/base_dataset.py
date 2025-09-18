@@ -4,7 +4,10 @@ from os.path import join, exists, dirname, abspath
 import logging
 import numpy as np
 
-from ..utils import Config, get_module
+from ml3d.datasets.samplers.semseg_random import SemSegRandomSampler
+from ml3d.datasets.samplers.semseg_spatially_regular import SemSegSpatiallyRegularSampler
+
+from ..utils import Config
 
 log = logging.getLogger(__name__)
 
@@ -125,11 +128,9 @@ class BaseDatasetSplit(ABC):
         self.dataset = dataset
 
         if split in ['test']:
-            sampler_cls = get_module('sampler', 'SemSegSpatiallyRegularSampler')
+            sampler_cls = SemSegSpatiallyRegularSampler
         else:
-            sampler_cfg = self.cfg.get('sampler',
-                                       {'name': 'SemSegRandomSampler'})
-            sampler_cls = get_module('sampler', sampler_cfg['name'])
+            sampler_cls = SemSegRandomSampler
         self.sampler = sampler_cls(self)
 
     @abstractmethod
