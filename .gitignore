@@ -31,3 +31,4 @@ train_log/
 *.las
 *.png
 .gitignore
+.github
