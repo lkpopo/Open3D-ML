@@ -138,17 +138,7 @@ class SemanticSegmentation(BasePipeline):
                               torch.nn.BatchNorm3d)):
                 m.train()
 
-        self.metric_test = SemSegMetric()
-
-        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-
-        log.info("DEVICE : {}".format(device))
-        log_file_path = join(cfg.logs_dir, 'log_test_' + timestamp + '.txt')
-        log.info("Logging in file : {}".format(log_file_path))
-        log.addHandler(logging.FileHandler(log_file_path))
-
         batcher = self.get_batcher(device)
-
         test_dataset = dataset.get_split('test')
         test_sampler = test_dataset.sampler
         test_split = TorchDataloader(dataset=test_dataset,
@@ -172,7 +162,6 @@ class SemanticSegmentation(BasePipeline):
         self.ori_test_labels = []
 
         record_summary = cfg.get('summary').get('record_for', [])
-        log.info("Started testing")
 
         with torch.no_grad():
             for unused_step, inputs in enumerate(test_loader):
@@ -187,29 +176,11 @@ class SemanticSegmentation(BasePipeline):
                         'predict_scores': self.ori_test_probs.pop()
                     }
                     attr = self.dataset_split.get_attr(test_sampler.cloud_id)
-                    gt_labels = self.dataset_split.get_data(
-                        test_sampler.cloud_id)['label']
-                    if (gt_labels > 0).any():
-                        valid_scores, valid_labels = filter_valid_label(
-                            torch.tensor(
-                                inference_result['predict_scores']).to(device),
-                            torch.tensor(gt_labels).to(device),
-                            model.cfg.num_classes, model.cfg.ignored_label_inds,
-                            device)
-
-                        self.metric_test.update(valid_scores, valid_labels)
-                        log.info(f"Accuracy : {self.metric_test.acc()}")
-                        log.info(f"IoU : {self.metric_test.iou()}")
-                        log.info(
-                            f"Overall Testing Accuracy : {self.metric_test.acc()[-1]}, mIoU : {self.metric_test.iou()[-1]}"
-                        )
                     dataset.save_test_result(inference_result, attr)
                     # Save only for the first batch
                     if 'test' in record_summary and 'test' not in self.summary:
                         self.summary['test'] = self.get_3d_summary(
                             results, inputs['data'], 0, save_gt=False)
-
-        log.info("Finished testing")
 
     def update_tests(self, sampler, inputs, results):
         """Update tests using sampler, inputs, and results."""

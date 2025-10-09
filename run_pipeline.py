@@ -4,6 +4,7 @@ import logging
 import sys
 from pathlib import Path
 import pprint
+from tabnanny import check
 from sympy import Segment
 import yaml
 import numpy as np

@@ -1,14 +1,12 @@
 import numpy as np
-import os, sys, glob, pickle
+import glob
 from pathlib import Path
-from os.path import join, exists, dirname, abspath
-from sklearn.neighbors import KDTree
-from tqdm import tqdm
+from os.path import join, exists
 import logging
 
-from .base_dataset import BaseDataset, BaseDatasetSplit
+from datasets.samplers.semseg_sampler import SemSegRandomSampler,SemSegSpatiallyRegularSampler
 from utils import make_dir
-
+from utils import Config
 log = logging.getLogger(__name__)
 
 # Expect point clouds to be in npy format with train, val and test files in separate folders.
@@ -16,7 +14,7 @@ log = logging.getLogger(__name__)
 # For test files, format should be : ['x', 'y', 'z', 'feat_1', 'feat_2', ........,'feat_n'].
 
 
-class Custom3DSplit(BaseDatasetSplit):
+class Custom3DSplit:
     """This class is used to create a custom dataset split.
 
     Initialize the class.
@@ -32,14 +30,20 @@ class Custom3DSplit(BaseDatasetSplit):
     """
 
     def __init__(self, dataset, split='training'):
-        super().__init__(dataset, split=split)
+        
         self.cfg = dataset.cfg
         path_list = dataset.get_split_list(split)
-        log.info("Found {} pointclouds for {}".format(len(path_list), split))
-
         self.path_list = path_list
         self.split = split
         self.dataset = dataset
+
+        if split in ['test']:
+            sampler_cls = SemSegSpatiallyRegularSampler
+        else:
+            sampler_cls = SemSegRandomSampler
+        self.sampler = sampler_cls(self)
+        
+        log.info("Found {} pointclouds for {}".format(len(path_list), split))
 
     def __len__(self):
         return len(self.path_list)
@@ -70,7 +74,7 @@ class Custom3DSplit(BaseDatasetSplit):
         return attr
 
 
-class Custom3D(BaseDataset):
+class Custom3D:
     """A template for customized dataset that you can use with a dataloader to
     feed data when training a model. This inherits all functions from the base
     dataset and can be modified by users. Initialize the function by passing the
@@ -86,24 +90,16 @@ class Custom3D(BaseDataset):
         test_result_folder: The folder where the test results should be stored.
     """
 
-    def __init__(self,
-                 dataset_path,
-                 name='Custom3D',
-                 cache_dir='./logs/cache',
-                 use_cache=False,
-                 num_points=65536,
-                 ignored_label_inds=[],
-                 test_result_folder='./test',
-                 **kwargs):
+    def __init__(self,**kwargs):
+        if kwargs['dataset_path'] is None:
+            raise KeyError("Provide dataset_path to initialize the dataset")
 
-        super().__init__(dataset_path=dataset_path,
-                         name=name,
-                         cache_dir=cache_dir,
-                         use_cache=use_cache,
-                         num_points=num_points,
-                         ignored_label_inds=ignored_label_inds,
-                         test_result_folder=test_result_folder,
-                         **kwargs)
+        if kwargs['name'] is None:
+            raise KeyError("Provide dataset name to initialize it")
+
+        self.cfg = Config(kwargs)
+        self.name = self.cfg.name
+        self.rng = np.random.default_rng(kwargs.get('seed', None))
 
         cfg = self.cfg
 
@@ -170,15 +166,9 @@ class Custom3D(BaseDataset):
         if split in ['test', 'testing']:
             self.rng.shuffle(self.test_files)
             return self.test_files
-        elif split in ['val', 'validation']:
-            self.rng.shuffle(self.val_files)
-            return self.val_files
         elif split in ['train', 'training']:
             self.rng.shuffle(self.train_files)
             return self.train_files
-        elif split in ['all']:
-            files = self.val_files + self.train_files + self.test_files
-            return files
         else:
             raise ValueError("Invalid split {}".format(split))
 

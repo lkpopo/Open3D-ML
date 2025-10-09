@@ -8,18 +8,19 @@ dataset:
   use_cache: true
   train_dir: train
   val_dir: val
+  ignored_label_inds: [0]
   test_dir: test
-  steps_per_epoch_train: 5
+  steps_per_epoch_train: 1520
 
 model:
   name: RandLANet
   batcher: DefaultBatcher
-  ckpt_path: /home/zxhc/Workspace/Open3D-ML/scripts/logs/RandLANet_Custom3D_torch/checkpoint/ckpt_00330.pth
+  ckpt_path:
   num_neighbors: 16
   num_layers: 5
   num_points: 65536
   num_classes: 5
-  ignored_label_inds: []
+  ignored_label_inds: [0]
   sub_sampling_ratio: [4, 4, 4, 4, 2]
   in_channels: 6
   dim_features: 3
@@ -46,11 +47,11 @@ pipeline:
     lr: 0.001
   batch_size: 1
   main_log_dir: /home/zxhc/Workspace/Open3D-ML/scripts/logs
-  max_epoch: 350
+  max_epoch: 300
   save_ckpt_freq: 10
   scheduler_gamma: 0.965
   test_batch_size: 1
-  num_workers: 4
+  num_workers: 1
   pin_memory: false
   split: train
   summary:
